@@ -1,22 +1,18 @@
-"""
-Main entry point for the ToDoList application.
-Initializes the application layers and starts the command-line interface.
-"""
+# File: main.py
+
 import os
 from dotenv import load_dotenv
 
 from storage.in_memory import InMemoryStorage
-from core.services import ProjectService
+# Imports are updated to the new structure
+from core.services.project_service import ProjectService
+from core.services.task_service import TaskService
 from cli.main import CLI
 
 def main():
-    """
-    Initializes and runs the application.
-    """
-    # Load environment variables from .env file
+    """Initializes and runs the application."""
     load_dotenv()
 
-    # Read configuration from environment variables with default fallbacks
     try:
         max_projects = int(os.getenv("MAX_NUMBER_OF_PROJECT", "10"))
         max_tasks = int(os.getenv("MAX_NUMBER_OF_TASK_PER_PROJECT", "20"))
@@ -25,18 +21,15 @@ def main():
         max_projects = 10
         max_tasks = 20
 
-    # 1. Initialize the Storage layer
+    # 1. Initialize Storage
     storage = InMemoryStorage()
 
-    # 2. Initialize the Service layer and inject dependencies (storage and config)
-    service = ProjectService(
-        storage=storage, 
-        max_projects=max_projects, 
-        max_tasks_per_project=max_tasks
-    )
+    # 2. Initialize BOTH services and inject dependencies
+    project_service = ProjectService(storage=storage, max_projects=max_projects)
+    task_service = TaskService(storage=storage, max_tasks_per_project=max_tasks)
 
-    # 3. Initialize the CLI layer and inject the service
-    cli_app = CLI(project_service=service)
+    # 3. Initialize the CLI and inject BOTH services
+    cli_app = CLI(project_service=project_service, task_service=task_service)
 
     # 4. Start the application
     cli_app.run()
