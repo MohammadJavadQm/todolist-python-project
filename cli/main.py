@@ -1,10 +1,13 @@
-# File: cli/main.py
-
+"""
+The command-line interface for the ToDoList application.
+Handles user input and orchestrates calls to the appropriate service layers.
+"""
 # Import both service classes for type hinting
 from core.services.project_service import ProjectService
 from core.services.task_service import TaskService
 
 class CLI:
+    """Manages all command-line interactions."""
     # The constructor now accepts two separate services
     def __init__(self, project_service: ProjectService, task_service: TaskService):
         self._project_service = project_service
@@ -24,17 +27,21 @@ class CLI:
         }
 
     def show_help(self):
+        """Displays all available commands to the user."""
         print("\nAvailable commands:")
         for command in self.commands:
             print(f"  - {command}")
         print()
 
     def exit_app(self):
+        """Exits the application."""
         print("Exiting the application. Goodbye!")
         return True
 
     # --- Project Methods ---
+
     def create_project(self):
+        """Handles the 'create-project' command."""
         try:
             name = input("Enter project name: ")
             desc = input("Enter project description: ")
@@ -45,7 +52,7 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
 
     def list_projects(self):
-        # Use the dedicated project service
+        """Handles the 'list-projects' command, now including descriptions."""
         projects = self._project_service.get_all_projects()
         if not projects:
             print("---\nℹ️ No projects found. Use 'create-project' to add one.\n---")
@@ -53,10 +60,12 @@ class CLI:
         
         print("\n--- Projects ---")
         for proj in projects:
-            print(f"  ID: {proj.id}, Name: {proj.name} ({len(proj.tasks)} tasks)")
+            # CORRECTED: Now displays the project description as required.
+            print(f"  ID: {proj.id}, Name: {proj.name}\n    Description: {proj.description} ({len(proj.tasks)} tasks)")
         print("----------------\n")
 
     def edit_project(self):
+        """Handles the 'edit-project' command."""
         try:
             project_id = int(input("Enter the Project ID to edit: "))
             print("Enter new values. Press Enter to keep the current value.")
@@ -69,6 +78,7 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
 
     def delete_project(self):
+        """Handles the 'delete-project' command."""
         try:
             project_id = int(input("Enter the Project ID to delete: "))
             confirm = input(f"Are you sure you want to delete project {project_id} and all its tasks? (yes/no): ").lower()
@@ -82,7 +92,9 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
 
     # --- Task Methods ---
+
     def add_task(self):
+        """Handles the 'add-task' command."""
         try:
             project_id = int(input("Enter the Project ID to add the task to: "))
             title = input("Enter task title: ")
@@ -95,6 +107,7 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
 
     def list_tasks(self):
+        """Handles the 'list-tasks' command."""
         try:
             project_id = int(input("Enter the Project ID to list tasks from: "))
             # Use the dedicated task service
@@ -112,6 +125,7 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
     
     def change_task_status(self):
+        """Handles the 'change-task-status' command."""
         try:
             project_id = int(input("Enter the Project ID: "))
             task_id = int(input("Enter the Task ID: "))
@@ -123,6 +137,7 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
     
     def edit_task(self):
+        """Handles the 'edit-task' command."""
         try:
             project_id = int(input("Enter the Project ID of the task: "))
             task_id = int(input("Enter the Task ID to edit: "))
@@ -138,6 +153,7 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
 
     def delete_task(self):
+        """Handles the 'delete-task' command."""
         try:
             project_id = int(input("Enter the Project ID of the task: "))
             task_id = int(input("Enter the Task ID to delete: "))
@@ -148,6 +164,7 @@ class CLI:
             print(f"---\n❌ Error: {e}\n---")
 
     def run(self):
+        """Starts the main loop of the CLI."""
         print("--- ToDoList Application ---")
         self.show_help()
         while True:
