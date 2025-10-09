@@ -1,20 +1,27 @@
+# File: storage/in_memory.py
+
 """
 Provides an in-memory storage solution for projects and tasks.
 This storage is ephemeral and will be reset every time the application starts.
 """
+from datetime import date
+# The import remains correct because of our __init__.py in the models folder.
 from core.models import Project, Task
 
 class InMemoryStorage:
     """Manages all data in memory using Python dictionaries."""
     def __init__(self):
         self._projects: dict[int, Project] = {}
-        self._last_id = 0
+        self._last_project_id = 0
 
-    def create(self, name: str, description: str) -> Project:
+    # --- Project Methods ---
+
+    # RENAMED: from `create` to `create_project` for clarity
+    def create_project(self, name: str, description: str) -> Project:
         """Creates a new project and stores it in memory."""
-        self._last_id += 1
-        project = Project(name=name, description=description, project_id=self._last_id)
-        self._projects[self._last_id] = project
+        self._last_project_id += 1
+        project = Project(name=name, description=description, project_id=self._last_project_id)
+        self._projects[self._last_project_id] = project
         return project
 
     def get_project_by_name(self, name: str) -> Project | None:
@@ -38,6 +45,18 @@ class InMemoryStorage:
             del self._projects[project_id]
             return True
         return False
+
+    # --- Task Methods ---
+
+    # NEW: Added `create_task` method for the TaskService to use
+    def create_task(self, project_id: int, title: str, description: str, deadline: date | None) -> Task | None:
+        """Creates a new task and adds it to the specified project."""
+        project = self.get_project_by_id(project_id)
+        if not project:
+            return None
+        # We call the project's own method to handle the logic of adding the task
+        new_task = project.add_task(title=title, description=description, deadline=deadline)
+        return new_task
     
     def get_task_by_id(self, project_id: int, task_id: int) -> Task | None:
         """Finds a specific task within a specific project."""
