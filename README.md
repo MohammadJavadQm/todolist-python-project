@@ -1,129 +1,159 @@
-# ToDoList CLI Application - Phase 1
+ToDoList Project - Phase 2 (RDB Integration)
 
-This project is a command-line interface (CLI) application for managing tasks and projects, developed as the first phase of a comprehensive software engineering project. The primary focus of this phase has been on implementing a **Clean Architecture**, adhering to **Object-Oriented Programming (OOP)** principles, and following **professional coding and workflow conventions**.
+This project is a command-line interface (CLI) application for managing tasks and projects. This second phase evolves the application from its initial In-Memory state (Phase 1) into a persistent application using a Clean Layered Architecture, the Repository Pattern, and a PostgreSQL database.
 
------
+🚀 Key Features
 
-## 🚀 Key Features
+Full Project Management: Create, edit, delete (with cascade), and list projects.
 
-  * **Full Project Management:**
-      * Create a new project (`create-project`)
-      * Edit a project's name and description (`edit-project`)
-      * Delete a project along with all its tasks (Cascade Delete) (`delete-project`)
-      * Display a list of all projects (`list-projects`)
-  * **Complete Task Management:**
-      * Add a new task to a specific project (`add-task`)
-      * Edit task details (title, description, deadline) (`edit-task`)
-      * Change a task's status (todo, doing, done) (`change-task-status`)
-      * Delete a task (`delete-task`)
-      * Display all tasks within a specific project (`list-tasks`)
-  * **External Configuration:** Project and task limits are managed via an `.env` file to decouple configuration from the codebase.
-  * **User Interface:** All user interactions are handled through a simple and intuitive Command-Line Interface (CLI).
-  * **Storage:** In this phase, all data is stored temporarily in-memory. The state is reset every time the application is relaunched.
+Complete Task Management: Add, edit, delete, change status (todo, doing, done), and list tasks.
 
------
+Data Persistence: All data is now stored in a real PostgreSQL database, ensuring data is saved between sessions.
 
-## 🏛️ Architecture and Design
+Automatic Task Closing: A background scheduler automatically finds and closes overdue tasks by setting their status to DONE.
 
-This project is designed following the **Separation of Concerns** principle with a clean, three-layer architecture. This design significantly enhances the code's maintainability, scalability, and testability.
+External Configuration: All settings (including database credentials and limits) are managed via an .env file.
 
-```
+User Interface: All user interactions are handled through the familiar CLI from Phase 1.
+
+🏛️ Architecture and Design (Phase 2)
+
+In this phase, the project was completely refactored to follow the principles of Separation of Concerns (SoC) and Dependency Injection (DI). All application logic now resides within the app/ package.
+
+The new architecture is based on the Repository Pattern:
+
 +--------------------------+
-|      CLI Layer           |  (Presentation Layer - cli/main.py)
-|      (User Interface)    |  Handles user interaction
+|   CLI (app/cli)          |  (Presentation Layer)
+|   (User Interface)       |  Handles user interaction
 +-----------+--------------+
             |
             v
 +-----------+--------------+
-|      Core Layer          |  (Business Logic Layer - core/services.py)
-|      (Business Logic)    |  The "brain" of the application, contains all business rules
+|   Services (app/services)|  (Business Logic Layer)
+|   (Business Logic)       |  The "brain" - contains all business rules
 +-----------+--------------+
             |
             v
 +-----------+--------------+
-|      Storage Layer       |  (Data Access Layer - storage/in_memory.py)
-|      (Data Access)       |  Responsible for storing and retrieving data
+|   Repositories (app/repo)|  (Data Access Layer)
+|   (Repository Pattern)   |  Interface between logic and database
++-----------+--------------+
+            |
+            v
++-----------+--------------+
+|   Models / DB (app/models)|  (Data Layer)
+|   (SQLAlchemy ORM)       |  Defines tables and connects to PostgreSQL
 +--------------------------+
-```
 
-Dependencies are managed using the **Dependency Injection** pattern to ensure that layers remain decoupled and independent.
 
------
+app/commands: Contains standalone scripts that can be run on a schedule (like autoclose_overdue.py).
 
-## 🛠️ Tools & Technologies
+🛠️ Tools & Technologies
 
-  * **Language:** Python 3.10+
-  * **Dependency & Environment Management:** Poetry
-  * **Version Control:** Git & GitHub
-  * **Git Workflow:** Git Flow (utilizing `main`, `develop`, and `feature/*` branches)
+Language: Python 3.10+
 
------
+Dependency Management: Poetry
 
-## ⚙️ Setup and Installation
+Version Control: Git & GitHub (Git Flow)
+
+Database: PostgreSQL (Running on Docker)
+
+Containerization: Docker Desktop
+
+ORM: SQLAlchemy (For modeling and interacting with the DB)
+
+Database Migrations: Alembic (For creating and updating tables)
+
+Task Scheduling: schedule (For running periodic background jobs)
+
+⚙️ Setup and Installation
 
 Follow these steps to set up the project on your local machine.
 
-**Prerequisites:**
+Prerequisites:
 
-  * [Git](https://git-scm.com/)
-  * [Python 3.10](https://www.python.org/) or newer
-  * [Poetry](https://python-poetry.org/)
+Git
 
-**Installation Steps:**
+Python 3.10 or newer
 
-1.  **Clone the repository:**
+Poetry
 
-    ```bash
-    git clone https://github.com/MohammadJavadQm/todolist-python-project.git
-    cd todolist-python-project
-    ```
+Docker Desktop (must be running)
 
-2.  **Install dependencies:**
-    Poetry will automatically create a virtual environment and install the required packages.
+Installation Steps:
 
-    ```bash
-    poetry install
-    ```
+Clone the repository:
 
-3.  **Set up the configuration file:**
-    Copy the `.env.example` file to `.env` and modify the values as needed.
+git clone [https://github.com/MohammadJavadQm/todolist-python-project.git](https://github.com/MohammadJavadQm/todolist-python-project.git)
+cd todolist-python-project
 
-    ```bash
-    # For Windows
-    copy .env.example .env
 
-    # For macOS/Linux
-    cp .env.example .env
-    ```
+Install dependencies:
+Poetry will automatically create a virtual environment and install all packages (like sqlalchemy, psycopg2-binary, alembic, and schedule).
 
------
+poetry install
 
-## ▶️ How to Run
 
-To run the application, execute the following command from the project's root directory:
+Set up the configuration file:
+Copy .env.example to .env. The values for DB_USER, DB_PASSWORD, and DB_NAME must match what you will set in the Docker command.
 
-```bash
+# For Windows
+copy .env.example .env
+
+
+Run the PostgreSQL Database with Docker:
+Execute the following command in your terminal to run a database container in the background:
+
+docker run --name todolist-db -e POSTGRES_USER=parsa -e POSTGRES_PASSWORD=secret123 -e POSTGRES_DB=mydb -p 5432:5432 -d postgres
+
+
+(Note: The values parsa, secret123, and mydb must match your .env file).
+
+Run Database Migrations:
+This command creates the projects and tasks tables in your new empty database:
+
+poetry run alembic upgrade head
+
+
+▶️ How to Run
+
+The Phase 2 project has two executable parts that should be run simultaneously (in two separate terminals):
+
+1. Run the Main Application (CLI)
+
+In your first terminal, for interacting with the app:
+
 poetry run python main.py
-```
 
------
 
-## 📋 Available Commands
+2. Run the Scheduler
 
-Once the application is running, you can use the following commands to interact with it:
+In your second terminal, to automatically close overdue tasks:
 
-| Command                | Description                                                 |
-| ---------------------- | ----------------------------------------------------------- |
-| `help`                 | Displays a list of all available commands.                  |
-| `exit`                 | Exits the application.                                      |
-| **--- Project Management ---** |                                                             |
-| `create-project`       | Creates a new project.                                      |
-| `list-projects`        | Lists all existing projects.                                |
-| `edit-project`         | Edits the name and description of an existing project.      |
-| `delete-project`       | Deletes a project and all of its associated tasks.          |
-| **--- Task Management ---** |                                                             |
-| `add-task`             | Adds a new task to a project.                               |
-| `list-tasks`           | Lists all tasks for a specific project.                     |
-| `change-task-status`   | Changes a task's status to `todo`, `doing`, or `done`.      |
-| `edit-task`            | Edits a task's details (title, description, deadline).      |
-| `delete-task`          | Deletes a specific task.                                    |
+poetry run python app/commands/scheduler.py
+
+
+📋 Available Commands
+
+The CLI commands remain the same as in Phase 1:
+| Command | Description |
+| :--- | :--- |
+| help | Displays a list of all available commands. |
+| exit | Exits the application. |
+| --- Project Management --- | |
+| create-project | Creates a new project. |
+| list-projects | Lists all existing projects. |
+| edit-project | Edits the name and description of an existing project. |
+| delete-project | Deletes a project and all of its associated tasks. |
+| --- Task Management --- | |
+| add-task | Adds a new task to a project. |
+| list-tasks | Lists all tasks for a specific project. |
+| change-task-status| Changes a task's status to todo, doing, or done. |
+| edit-task | Edits a task's details (title, description, deadline). |
+| delete-task | Deletes a specific task. |
+
+🔮 Future Plans (Phase 3)
+
+Develop a REST API using the FastAPI framework on top of the current service layer.
+
+Write Automated Tests (Unit Tests) for the Service and Repository layers.
