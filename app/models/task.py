@@ -1,24 +1,27 @@
-# File: core/models/task.py
+import enum
+from sqlalchemy import Column, Integer, String, Date, Enum, ForeignKey
+from sqlalchemy.orm import relationship
+from app.db.base import Base
 
-from datetime import date
-from enum import Enum
-
-class TaskStatus(Enum):
-    """Enumeration for the status of a task."""
+class TaskStatus(enum.Enum):
     TODO = "todo"
     DOING = "doing"
     DONE = "done"
 
-class Task:
-    """Represents a single task within a project."""
-    def __init__(self, title: str, description: str, 
-                 task_id: int, status: TaskStatus = TaskStatus.TODO, deadline: date | None = None):
-        self.id = task_id
-        self.title = title
-        self.description = description
-        self.status = status
-        self.deadline = deadline
+class Task(Base):
+    __tablename__ = "tasks"
 
-    def __repr__(self) -> str:
-        """Provides a developer-friendly string representation of the task."""
-        return f"<Task(id={self.id}, title='{self.title}', status='{self.status.value}')>"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    status = Column(Enum(TaskStatus), default=TaskStatus.TODO, nullable=False)
+    deadline = Column(Date, nullable=True)
+    
+    # کلید خارجی: این ستون به ستون id در جدول projects اشاره می‌کند
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+
+    # ارتباط با پروژه (Many-to-One)
+    project = relationship("Project", back_populates="tasks")
+
+    def __repr__(self):
+        return f"<Task(id={self.id}, title='{self.title}', status='{self.status}')>"
