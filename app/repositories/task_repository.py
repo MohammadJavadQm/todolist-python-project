@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.task import Task, TaskStatus
 from app.models.project import Project
-from datetime import date
+from datetime import date # <-- مطمئن شو که این import اضافه شده
 
 class TaskRepository:
     def __init__(self, db: Session):
@@ -21,7 +21,7 @@ class TaskRepository:
             title=title,
             description=description,
             deadline=deadline,
-            project_id=project.id  # اتصال تسک به پروژه
+            project_id=project.id
         )
         self.db.add(db_task)
         self.db.commit()
@@ -38,3 +38,34 @@ class TaskRepository:
         self.db.commit()
         self.db.refresh(task)
         return task
+
+    # متد جدید که اضافه کردیم
+    def get_overdue_tasks(self) -> list[Task]:
+        """
+        تمام تسک‌هایی که تاریخ ددلاین آن‌ها گذشته
+        و وضعیت آن‌ها "done" نیست را برمی‌گرداند.
+        """
+        today = date.today()
+        return self.db.query(Task).filter(
+            Task.deadline < today,
+            Task.status != TaskStatus.DONE
+        ).all()
+
+    def autoclose_overdue_tasks(self) -> int:
+        """
+        تسک‌های تاریخ‌گذشته را پیدا کرده و وضعیت آن‌ها را به DONE تغییر می‌دهد.
+        تعداد تسک‌های بسته شده را برمی‌گرداند.
+        """
+        # ۱. پیدا کردن تسک‌های دیرشده
+        overdue_tasks = self.task_repo.get_overdue_tasks()
+        if not overdue_tasks:
+            return 0  # هیچ تسکی برای بستن وجود ندارد
+
+        # ۲. تغییر وضعیت همه‌ی آن‌ها
+        for task in overdue_tasks:
+            task.status = TaskStatus.DONE
+        
+        # ۳. ذخیره تمام تغییرات در یک تراکنش
+        self.task_repo.db.commit()
+        
+        return len(overdue_tasks)
