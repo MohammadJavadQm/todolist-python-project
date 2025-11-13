@@ -2,7 +2,7 @@
 Contains all business logic related to Task management.
 """
 from datetime import date
-from core.models.task import Task, TaskStatus
+from app.models.task import Task, TaskStatus
 from storage.in_memory import InMemoryStorage
 
 class TaskService:

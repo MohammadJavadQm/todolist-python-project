@@ -1,2 +1,2 @@
-from .project import Project
-from .task import Task, TaskStatus
+from ...app.models.project import Project
+from ...app.models.task import Task, TaskStatus

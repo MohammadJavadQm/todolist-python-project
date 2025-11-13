@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 
 from storage.in_memory import InMemoryStorage
 # Imports are updated to the new structure
-from core.services.project_service import ProjectService
-from core.services.task_service import TaskService
-from cli.main import CLI
+from app.services.project_service import ProjectService
+from app.services.task_service import TaskService
+from app.cli.main import CLI
 
 def main():
     """Initializes and runs the application."""

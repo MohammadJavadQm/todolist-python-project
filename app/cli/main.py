@@ -3,8 +3,8 @@ The command-line interface for the ToDoList application.
 Handles user input and orchestrates calls to the appropriate service layers.
 """
 # Import both service classes for type hinting
-from core.services.project_service import ProjectService
-from core.services.task_service import TaskService
+from app.services.project_service import ProjectService
+from app.services.task_service import TaskService
 
 class CLI:
     """Manages all command-line interactions."""

@@ -1,7 +1,7 @@
 """
 Contains all business logic related to Project management.
 """
-from core.models.project import Project
+from app.models.project import Project
 from storage.in_memory import InMemoryStorage
 
 class ProjectService:
