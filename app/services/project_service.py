@@ -1,84 +1,68 @@
-"""
-Contains all business logic related to Project management.
-"""
-from app.repositories.project_repository import ProjectRepository
-from app.exceptions.base import ProjectNotFoundError
+from sqlalchemy.orm import Session
 from app.models.project import Project
+from app.repositories.project_repository import ProjectRepository
+from app.api.controller_schemas.requests.project_request_schema import ProjectCreateRequest, ProjectUpdateRequest
 
-class ProjectService:
-    """
-    سرویس برای مدیریت منطق بیزینسی پروژه‌ها.
-    این لایه هیچ اطلاعی از دیتابیس (SQLAlchemy) ندارد.
-    """
-    def __init__(self, project_repo: ProjectRepository, max_projects: int):
-        self.project_repo = project_repo
-        self.max_projects = max_projects
+# تنظیمات بیزینسی (می‌تواند از متغیر محیطی خوانده شود)
+MAX_PROJECTS_LIMIT = 50
 
-    def create_project(self, name: str, description: str) -> Project:
-        """یک پروژه جدید با رعایت قوانین بیزینسی ایجاد می‌کند."""
-        
-        # قانون ۱: نام الزامی است
-        if not name or not name.strip():
-            raise ValueError("Project name is mandatory and cannot be empty.")
+def create_project(db: Session, request: ProjectCreateRequest) -> Project:
+    """یک پروژه جدید ایجاد می‌کند."""
+    repo = ProjectRepository(db)
 
-        # قانون ۲: ولیدیشن تعداد کلمات
-        if len(name.split()) > 30: 
-            raise ValueError("Project name cannot exceed 30 words.")
-        if description and len(description.split()) > 150: 
-            raise ValueError("Project description cannot exceed 150 words.")
-        
-        # قانون ۳: نام نباید تکراری باشد (بررسی توسط سرویس)
-        existing_project = self.project_repo.get_project_by_name(name.strip())
-        if existing_project:
-            raise ValueError(f"A project with the name '{name.strip()}' already exists.")
-        
-        # قانون ۴: سقف تعداد پروژه‌ها
-        if len(self.project_repo.get_all_projects()) >= self.max_projects: 
-            raise Exception("Cannot create more projects. The maximum limit has been reached.")
-            
-        # اگر همه قوانین رعایت شد، به ریپازیتوری دستور ذخیره بده
-        return self.project_repo.create_project(name=name.strip(), description=description.strip())
+    # 1. بیزینس لاجیک: بررسی سقف تعداد پروژه‌ها
+    if len(repo.get_all_projects()) >= MAX_PROJECTS_LIMIT:
+        raise ValueError("Cannot create more projects. The maximum limit has been reached.")
 
-    def edit_project(self, project_id: int, new_name: str | None, new_description: str | None) -> Project:
-        """یک پروژه موجود را ویرایش می‌کند."""
-        
-        # ابتدا پروژه را پیدا کن
-        project = self.project_repo.get_project_by_id(project_id)
-        if not project: 
-            raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
-        
-        if new_name is not None:
-            # قانون ۱: نام الزامی است
-            if not new_name or not new_name.strip():
-                raise ValueError("New project name is mandatory and cannot be empty.")
-            # قانون ۲: ولیدیشن تعداد کلمات
-            if len(new_name.split()) > 30: 
-                raise ValueError("New project name cannot exceed 30 words.")
-            # قانون ۳: بررسی تکراری بودن نام جدید
-            existing_project = self.project_repo.get_project_by_name(new_name.strip())
-            if existing_project and existing_project.id != project_id: 
-                raise ValueError(f"Another project with the name '{new_name.strip()}' already exists.")
-            project.name = new_name.strip()
+    # 2. بیزینس لاجیک: نام تکراری
+    if repo.get_project_by_name(request.name):
+        raise ValueError(f"A project with the name '{request.name}' already exists.")
 
-        if new_description is not None:
-            # قانون ۲: ولیدیشن تعداد کلمات
-            if len(new_description.split()) > 150: 
-                raise ValueError("New project description cannot exceed 150 words.")
-            project.description = new_description.strip()
-        
-        # اگر همه چیز اوکی بود، به ریپازیتوری دستور آپدیت بده
-        return self.project_repo.update_project(project)
+    # 3. بیزینس لاجیک: تعداد کلمات (علاوه بر تعداد کاراکتر که Pydantic چک کرده)
+    if len(request.name.split()) > 30:
+        raise ValueError("Project name cannot exceed 30 words.")
+    
+    if request.description and len(request.description.split()) > 150:
+        raise ValueError("Project description cannot exceed 150 words.")
 
-    def delete_project(self, project_id: int) -> None:
-        """یک پروژه را حذف می‌کند."""
-        project = self.project_repo.get_project_by_id(project_id)
-        if not project:
-            raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
-        
-        # Cascade delete در دیتابیس و SQLAlchemy تنظیم شده،
-        # پس ریپازیتوری فقط باید پروژه را حذف کند.
-        self.project_repo.delete_project(project)
+    # 4. ذخیره
+    return repo.create_project(name=request.name, description=request.description)
 
-    def get_all_projects(self) -> list[Project]:
-        """تمام پروژه‌ها را برمی‌گرداند."""
-        return self.project_repo.get_all_projects()
+def get_projects(db: Session, skip: int = 0, limit: int = 100):
+    repo = ProjectRepository(db)
+    return repo.get_all_projects()[skip : skip + limit]
+
+def get_project(db: Session, project_id: int):
+    repo = ProjectRepository(db)
+    return repo.get_project_by_id(project_id)
+
+def update_project(db: Session, project_id: int, request: ProjectUpdateRequest):
+    repo = ProjectRepository(db)
+    project = repo.get_project_by_id(project_id)
+    if not project:
+        return None
+
+    if request.name:
+        # چک نام تکراری در آپدیت
+        existing = repo.get_project_by_name(request.name)
+        if existing and existing.id != project_id:
+            raise ValueError(f"Another project with name '{request.name}' already exists.")
+        
+        if len(request.name.split()) > 30:
+            raise ValueError("New project name cannot exceed 30 words.")
+        project.name = request.name
+
+    if request.description:
+        if len(request.description.split()) > 150:
+            raise ValueError("New project description cannot exceed 150 words.")
+        project.description = request.description
+
+    return repo.update_project(project)
+
+def delete_project(db: Session, project_id: int):
+    repo = ProjectRepository(db)
+    project = repo.get_project_by_id(project_id)
+    if not project:
+        return False
+    repo.delete_project(project)
+    return True
