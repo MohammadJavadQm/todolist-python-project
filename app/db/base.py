@@ -1,5 +1,8 @@
 from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
-    """Base class for all database models."""
+    """
+    SQLAlchemy Base class.
+    All database models (tables) should inherit from this class.
+    """
     pass
