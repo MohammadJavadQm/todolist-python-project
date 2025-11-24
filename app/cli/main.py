@@ -155,6 +155,13 @@ class CLI:
 
     def run(self):
         """حلقه اصلی اجرای برنامه."""
+        # --- Deprecation Warning ---
+        print("\n" + "!" * 60)
+        print("WARNING: The CLI interface is deprecated and will be removed in future versions.")
+        print("Please transition to using the Web API.")
+        print("!" * 60 + "\n")
+        # ---------------------------
+
         print("--- ToDoList Application (DB Mode) ---")
         self.show_help()
         while True:
