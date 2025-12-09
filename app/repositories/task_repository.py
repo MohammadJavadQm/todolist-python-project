@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.task import Task, TaskStatus
 from app.models.project import Project
-from datetime import date # <-- مطمئن شو که این import اضافه شده
+from datetime import date
 
 class TaskRepository:
     def __init__(self, db: Session):
@@ -15,13 +15,21 @@ class TaskRepository:
         """دریافت لیست تمام تسک‌های یک پروژه."""
         return self.db.query(Task).filter(Task.project_id == project_id).all()
 
+    def get_all_tasks(self, skip: int = 0, limit: int = 100) -> list[Task]:
+        """
+        دریافت تمام تسک‌ها (بدون فیلتر پروژه) با صفحه‌بندی.
+        این متد برای نمایش لیست کلی تسک‌ها در API نیاز است.
+        """
+        return self.db.query(Task).offset(skip).limit(limit).all()
+
     def add_task_to_project(self, project: Project, title: str, description: str, deadline: date | None) -> Task:
         """ایجاد یک تسک جدید برای یک پروژه مشخص."""
         db_task = Task(
             title=title,
             description=description,
             deadline=deadline,
-            project_id=project.id
+            project_id=project.id,
+            status=TaskStatus.TODO # مقدار پیش‌فرض
         )
         self.db.add(db_task)
         self.db.commit()
@@ -39,7 +47,6 @@ class TaskRepository:
         self.db.refresh(task)
         return task
 
-    # متد جدید که اضافه کردیم
     def get_overdue_tasks(self) -> list[Task]:
         """
         تمام تسک‌هایی که تاریخ ددلاین آن‌ها گذشته
@@ -54,18 +61,15 @@ class TaskRepository:
     def autoclose_overdue_tasks(self) -> int:
         """
         تسک‌های تاریخ‌گذشته را پیدا کرده و وضعیت آن‌ها را به DONE تغییر می‌دهد.
-        تعداد تسک‌های بسته شده را برمی‌گرداند.
         """
-        # ۱. پیدا کردن تسک‌های دیرشده
-        overdue_tasks = self.task_repo.get_overdue_tasks()
+        overdue_tasks = self.get_overdue_tasks()
+        
         if not overdue_tasks:
-            return 0  # هیچ تسکی برای بستن وجود ندارد
+            return 0 
 
-        # ۲. تغییر وضعیت همه‌ی آن‌ها
         for task in overdue_tasks:
             task.status = TaskStatus.DONE
         
-        # ۳. ذخیره تمام تغییرات در یک تراکنش
-        self.task_repo.db.commit()
+        self.db.commit()
         
         return len(overdue_tasks)

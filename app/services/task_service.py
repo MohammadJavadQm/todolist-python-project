@@ -26,7 +26,7 @@ def create_task(db: Session, request: TaskCreateRequest) -> Task:
     if request.description and len(request.description.split()) > 150:
         raise ValueError("Task description cannot exceed 150 words.")
 
-    # 4. ایجاد تسک (تبدیل تاریخ توسط Pydantic انجام شده است)
+    # 4. ایجاد تسک
     return task_repo.add_task_to_project(
         project=project,
         title=request.title,
@@ -36,7 +36,7 @@ def create_task(db: Session, request: TaskCreateRequest) -> Task:
 
 def get_tasks(db: Session, skip: int = 0, limit: int = 100):
     repo = TaskRepository(db)
-    return db.query(Task).offset(skip).limit(limit).all()
+    return repo.get_all_tasks(skip, limit)
 
 def get_task(db: Session, task_id: int):
     repo = TaskRepository(db)
@@ -62,7 +62,6 @@ def update_task(db: Session, task_id: int, request: TaskUpdateRequest):
         task.deadline = request.due_date
         
     if request.status:
-        # تبدیل رشته به Enum
         try:
             task.status = TaskStatus(request.status.lower())
         except ValueError:

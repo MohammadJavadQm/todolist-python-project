@@ -13,19 +13,18 @@ class ProjectRepository:
         """دریافت یک پروژه بر اساس نام."""
         return self.db.query(Project).filter(Project.name == name).first()
 
-    def get_all_projects(self) -> list[Project]:
-        """دریافت لیست تمام پروژه‌ها."""
-        return self.db.query(Project).all()
+    def get_all_projects(self, skip: int = 0, limit: int = 100) -> list[Project]:
+        """
+        دریافت لیست پروژه‌ها با قابلیت صفحه‌بندی.
+        اصلاح شده برای دریافت skip و limit.
+        """
+        return self.db.query(Project).offset(skip).limit(limit).all()
 
     def create_project(self, name: str, description: str) -> Project:
         """ایجاد یک پروژه جدید."""
-        # ساخت آبجکت مدل
         db_project = Project(name=name, description=description)
-        # افزودن به سشن (آماده‌سازی برای ذخیره)
         self.db.add(db_project)
-        # ذخیره نهایی در دیتابیس
         self.db.commit()
-        # رفرش کردن آبجکت تا ID دیتابیس را دریافت کند
         self.db.refresh(db_project)
         return db_project
 
@@ -36,8 +35,6 @@ class ProjectRepository:
 
     def update_project(self, project: Project) -> Project:
         """به‌روزرسانی یک پروژه."""
-        # SQLAlchemy به طور خودکار تغییرات روی آبجکت project را ردیابی می‌کند
-        # فقط کافیست کامیت کنیم تا ذخیره شود.
         self.db.commit()
         self.db.refresh(project)
         return project

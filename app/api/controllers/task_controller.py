@@ -6,17 +6,17 @@ from app.services import task_service
 from app.api.controller_schemas.requests.task_request_schema import TaskCreateRequest, TaskUpdateRequest
 from app.api.controller_schemas.responses.task_response_schema import TaskResponse
 
-router = APIRouter(prefix="/tasks", tags=["Tasks"])
+router = APIRouter()
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(request: TaskCreateRequest, db: Session = Depends(get_db)):
     """
     Create a new task for a project.
     """
-    # چک کردن وجود پروژه باید در سرویس انجام شود، اما هندل کردن خطا اینجا رخ می‌دهد
     try:
         return task_service.create_task(db, request)
     except ValueError as e:
+        # اگر سرویس خطای ولیو برگرداند (مثلاً پروژه پیدا نشد)، اینجا 404 می‌دهیم
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/", response_model=List[TaskResponse])
@@ -40,6 +40,7 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
 def update_task(task_id: int, request: TaskUpdateRequest, db: Session = Depends(get_db)):
     """
     Update a task (e.g., mark as done).
+    Using PATCH allows partial updates.
     """
     task = task_service.update_task(db, task_id, request)
     if not task:

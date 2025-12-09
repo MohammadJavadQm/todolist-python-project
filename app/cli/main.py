@@ -1,17 +1,25 @@
 """
 لایه رابط خط فرمان (CLI) اپلیکیشن.
-این لایه فقط با سرویس‌ها صحبت می‌کند و از دیتابیس خبر ندارد.
+این لایه با استفاده از سرویس‌های جدید و مدل‌های Pydantic بازنویسی شده است.
 """
-from app.services.project_service import ProjectService
-from app.services.task_service import TaskService
-from app.exceptions.base import AppException # Import کردن خطای پایه
+import sys
+from datetime import datetime, date
+
+# اتصال به دیتابیس
+from app.db.session import SessionLocal
+
+# سرویس‌ها (به صورت ماژول ایمپورت می‌شوند)
+from app.services import project_service, task_service
+
+# مدل‌های درخواست (برای ارسال به سرویس)
+from app.api.controller_schemas.requests.project_request_schema import ProjectCreateRequest, ProjectUpdateRequest
+from app.api.controller_schemas.requests.task_request_schema import TaskCreateRequest, TaskUpdateRequest
 
 class CLI:
     """مدیریت تمام تعاملات خط فرمان."""
     
-    def __init__(self, project_service: ProjectService, task_service: TaskService):
-        self._project_service = project_service
-        self._task_service = task_service
+    def __init__(self):
+        # سرویس‌ها functional هستند و نیاز به اینستنس ندارند
         self.commands = {
             "create-project": self.create_project,
             "list-projects": self.list_projects,
@@ -26,6 +34,10 @@ class CLI:
             "exit": self.exit_app,
         }
 
+    def get_db(self):
+        """یک سشن دیتابیس می‌سازد."""
+        return SessionLocal()
+
     def show_help(self):
         """نمایش تمام دستورات موجود."""
         print("\nAvailable commands:")
@@ -35,34 +47,43 @@ class CLI:
 
     def exit_app(self):
         """خروج از اپلیکیشن."""
-        # پیام بسته شدن سشن در main.py چاپ خواهد شد
         return True # سیگنال خروج
 
-    # --- متدهای پروژه ---
+    
     def create_project(self):
         try:
             name = input("Enter project name: ")
-            desc = input("Enter project description (optional): ")
-            project = self._project_service.create_project(name, desc)
-            print(f"---\n✅ Success! Project '{project.name}' created with ID {project.id}.\n---")
-        except (ValueError, AppException, Exception) as e:
+            desc = input("Enter project description (optional): ") or None
+            
+            # 1. ساخت مدل Pydantic
+            request = ProjectCreateRequest(name=name, description=desc)
+            
+            # 2. باز کردن سشن دیتابیس و فراخوانی سرویس
+            with self.get_db() as db:
+                project = project_service.create_project(db, request)
+                print(f"---\n✅ Success! Project '{project.name}' created with ID {project.id}.\n---")
+                
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
 
     def list_projects(self):
         try:
-            projects = self._project_service.get_all_projects()
-            if not projects:
-                print("---\nℹ️ No projects found. Use 'create-project' to add one.\n---")
-                return
-            
-            print("\n--- Projects ---")
-            for proj in projects:
-                # نمایش توضیحات پروژه (طبق نیازمندی فاز ۱)
-                print(f"  ID: {proj.id}, Name: {proj.name}\n    Description: {proj.description} ({len(proj.tasks)} tasks)")
-            print("----------------\n")
-        except (ValueError, AppException, Exception) as e:
-            print(f"---\n❌ Error: {e}\n---")
+            with self.get_db() as db:
+                # دریافت همه پروژه‌ها (بدون صفحه‌بندی در CLI پیش‌فرض ۱۰۰ تا می‌گیریم)
+                projects = project_service.get_projects(db, skip=0, limit=100)
+                
+                if not projects:
+                    print("---\nℹ️ No projects found. Use 'create-project' to add one.\n---")
+                    return
+                
+                print("\n--- Projects ---")
+                for proj in projects:
+                    print(f"  ID: {proj.id}, Name: {proj.name}")
+                    print(f"    Description: {proj.description or 'N/A'}")
 
+                print("----------------\n")
+        except Exception as e:
+            print(f"---\n❌ Error: {e}\n---")
 
     def edit_project(self):
         try:
@@ -71,98 +92,146 @@ class CLI:
             new_name = input("New project name: ") or None
             new_desc = input("New project description: ") or None
             
-            project = self._project_service.edit_project(project_id, new_name, new_desc)
-            print(f"---\n✅ Success! Project {project.id} has been updated.\n---")
-        except (ValueError, AppException, Exception) as e:
+            request = ProjectUpdateRequest(name=new_name, description=new_desc)
+            
+            with self.get_db() as db:
+                project = project_service.update_project(db, project_id, request)
+                if project:
+                    print(f"---\n✅ Success! Project {project.id} has been updated.\n---")
+                else:
+                    print("❌ Project not found.")
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
 
     def delete_project(self):
         try:
             project_id = int(input("Enter the Project ID to delete: "))
-            confirm = input(f"Are you sure you want to delete project {project_id} and all its tasks? (yes/no): ").lower()
+            confirm = input(f"Are you sure? (yes/no): ").lower()
             if confirm == 'yes':
-                self._project_service.delete_project(project_id)
-                print(f"---\n✅ Success! Project {project_id} has been deleted.\n---")
+                with self.get_db() as db:
+                    success = project_service.delete_project(db, project_id)
+                    if success:
+                        print(f"---\n✅ Success! Project {project_id} deleted.\n---")
+                    else:
+                        print("❌ Project not found.")
             else:
-                print("---\nℹ️ Deletion cancelled.\n---")
-        except (ValueError, AppException, Exception) as e:
+                print("Cancelled.")
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
 
     # --- متدهای تسک ---
     def add_task(self):
         try:
-            project_id = int(input("Enter the Project ID to add the task to: "))
+            project_id = int(input("Enter Project ID: "))
             title = input("Enter task title: ")
-            description = input("Enter task description (optional): ")
-            deadline = input("Enter deadline (YYYY-MM-DD, optional): ")
+            desc = input("Enter description (optional): ") or None
+            due_date_str = input("Enter deadline (YYYY-MM-DD, optional): ") or None
             
-            task = self._task_service.add_task_to_project(project_id, title, description, deadline or None)
-            print(f"---\n✅ Success! Task '{task.title}' added to project ID {project_id}.\n---")
-        except (ValueError, AppException, Exception) as e:
+            due_date = None
+            if due_date_str:
+                due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+
+            request = TaskCreateRequest(
+                project_id=project_id,
+                title=title,
+                description=desc,
+                due_date=due_date
+            )
+            
+            with self.get_db() as db:
+                task = task_service.create_task(db, request)
+                print(f"---\n✅ Success! Task '{task.title}' added.\n---")
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
 
     def list_tasks(self):
         try:
-            project_id = int(input("Enter the Project ID to list tasks from: "))
-            tasks = self._task_service.get_tasks_for_project(project_id)
-            if not tasks:
-                print(f"---\nℹM No tasks found for project ID {project_id}.\n---")
-                return
+            # نکته: سرویس get_tasks همه تسک‌ها را برمی‌گرداند
+            project_id_input = input("Enter Project ID to filter (or press Enter for all): ")
             
-            print(f"\n--- Tasks in Project ID {project_id} ---")
-            for task in tasks:
-                deadline_str = f", Deadline: {task.deadline}" if task.deadline else ""
-                print(f"  ID: {task.id}, Status: {task.status.value.upper()}, Title: {task.title}{deadline_str}")
-            print("--------------------------------\n")
-        except (ValueError, AppException, Exception) as e:
+            with self.get_db() as db:
+                if project_id_input:
+                    # روش صحیح: گرفتن پروژه و نمایش تسک‌هایش
+                    proj = project_service.get_project(db, int(project_id_input))
+                    if not proj:
+                        print("❌ Project not found.")
+                        return
+                    tasks = proj.tasks # استفاده از Relationship دیتابیس
+                    print(f"\n--- Tasks for Project {proj.name} ---")
+                else:
+                    tasks = task_service.get_tasks(db, limit=100)
+                    print("\n--- All Tasks ---")
+
+                for task in tasks:
+                    status = task.status.value if hasattr(task.status, 'value') else task.status
+                    print(f"  ID: {task.id} | Status: {status} | Title: {task.title}")
+                    if task.deadline:
+                        print(f"    Deadline: {task.deadline}")
+                print("-----------------\n")
+                
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
-    
+
     def change_task_status(self):
         try:
-            project_id = int(input("Enter the Project ID: "))
-            task_id = int(input("Enter the Task ID: "))
-            new_status = input("Enter the new status (todo, doing, done): ")
+            task_id = int(input("Enter Task ID: "))
+            new_status = input("Enter new status (todo, doing, done): ").lower()
             
-            task = self._task_service.change_task_status(project_id, task_id, new_status)
-            print(f"---\n✅ Success! Task {task.id} status changed to '{task.status.value.upper()}'.\n---")
-        except (ValueError, AppException, Exception) as e:
+            request = TaskUpdateRequest(status=new_status)
+            
+            with self.get_db() as db:
+                task = task_service.update_task(db, task_id, request)
+                if task:
+                    print(f"---\n✅ Success! Status changed to '{new_status}'.\n---")
+                else:
+                    print("❌ Task not found.")
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
-    
+
     def edit_task(self):
         try:
-            project_id = int(input("Enter the Project ID of the task: "))
-            task_id = int(input("Enter the Task ID to edit: "))
+            task_id = int(input("Enter Task ID to edit: "))
+            print("Enter new values (Enter to skip):")
+            title = input("New title: ") or None
+            desc = input("New description: ") or None
             
-            print("Enter new values. Press Enter to keep the current value.")
-            new_title = input("New title: ") or None
-            new_desc = input("New description: ") or None
-            new_deadline = input("New deadline (YYYY-MM-DD or 'none' to remove): ") or None
-
-            task = self._task_service.edit_task(project_id, task_id, new_title, new_desc, new_deadline)
-            print(f"---\n✅ Success! Task {task.id} has been updated.\n---")
-        except (ValueError, AppException, Exception) as e:
+            request = TaskUpdateRequest(title=title, description=desc)
+            
+            with self.get_db() as db:
+                task = task_service.update_task(db, task_id, request)
+                if task:
+                    print(f"---\n✅ Success! Task updated.\n---")
+                else:
+                    print("❌ Task not found.")
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
 
     def delete_task(self):
         try:
-            project_id = int(input("Enter the Project ID of the task: "))
-            task_id = int(input("Enter the Task ID to delete: "))
+            task_id = int(input("Enter Task ID to delete: "))
+            confirm = input("Are you sure? (yes/no): ").lower()
             
-            self._task_service.delete_task(project_id, task_id)
-            print(f"---\n✅ Success! Task {task_id} from project {project_id} has been deleted.\n---")
-        except (ValueError, AppException, Exception) as e:
+            if confirm == 'yes':
+                with self.get_db() as db:
+                    success = task_service.delete_task(db, task_id)
+                    if success:
+                        print(f"---\n✅ Success! Task {task_id} deleted.\n---")
+                    else:
+                        print("❌ Task not found.")
+            else:
+                print("Cancelled.")
+        except Exception as e:
             print(f"---\n❌ Error: {e}\n---")
 
     def run(self):
         """حلقه اصلی اجرای برنامه."""
-        # --- Deprecation Warning ---
-        print("\n" + "!" * 60)
-        print("WARNING: The CLI interface is deprecated and will be removed in future versions.")
-        print("Please transition to using the Web API.")
-        print("!" * 60 + "\n")
+        print("\n" + "!" * 80)
+        print("WARNING: CLI interface is deprecated and will be removed in the next release.")
+        print("Please use the FastAPI Web Interface instead.")
+        print("!" * 80 + "\n")
         # ---------------------------
 
-        print("--- ToDoList Application (DB Mode) ---")
+        print("--- ToDoList CLI (Phase 3 Migration Mode) ---")
         self.show_help()
         while True:
             try:
@@ -173,10 +242,16 @@ class CLI:
                 command_func = self.commands.get(command_input)
                 
                 if command_func:
-                    if command_func(): # اگر exit_app بود، True برمی‌گرداند
+                    if command_func(): # اگر exit_app بود
                         break
                 else:
                     print("Unknown command. Type 'help' to see available commands.")
             except KeyboardInterrupt:
                 print("\nExiting application...")
                 break
+            except Exception as e:
+                print(f"Unexpected Error: {e}")
+
+if __name__ == "__main__":
+    cli = CLI()
+    cli.run()

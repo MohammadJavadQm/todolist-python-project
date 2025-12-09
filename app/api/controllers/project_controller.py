@@ -6,13 +6,13 @@ from app.services import project_service
 from app.api.controller_schemas.requests.project_request_schema import ProjectCreateRequest, ProjectUpdateRequest
 from app.api.controller_schemas.responses.project_response_schema import ProjectResponse
 
-# تعریف روتر
-router = APIRouter(prefix="/projects", tags=["Projects"])
+router = APIRouter()
 
 @router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(request: ProjectCreateRequest, db: Session = Depends(get_db)):
     """
     Create a new project.
+    This endpoint creates a new resource in the database.
     """
     return project_service.create_project(db, request)
 
@@ -20,6 +20,8 @@ def create_project(request: ProjectCreateRequest, db: Session = Depends(get_db))
 def get_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """
     Retrieve all projects with pagination.
+    - **skip**: Number of records to skip (for pagination)
+    - **limit**: Maximum number of records to return
     """
     return project_service.get_projects(db, skip, limit)
 
@@ -36,7 +38,7 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
 @router.put("/{project_id}", response_model=ProjectResponse)
 def update_project(project_id: int, request: ProjectUpdateRequest, db: Session = Depends(get_db)):
     """
-    Update a project fully or partially.
+    Update a project.
     """
     project = project_service.update_project(db, project_id, request)
     if not project:
@@ -51,4 +53,5 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     success = project_service.delete_project(db, project_id)
     if not success:
         raise HTTPException(status_code=404, detail="Project not found")
+    # در وضعیت 204 معمولاً چیزی برنمی‌گردانیم (یا فقط Response خالی)
     return None

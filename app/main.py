@@ -1,23 +1,26 @@
 from fastapi import FastAPI
 from app.api.controllers import project_controller, task_controller
-from app.db.base import Base
-from app.db.session import engine
-
-# ایجاد جداول در دیتابیس (اگر وجود نداشته باشند)
-# نکته: در محیط پروداکشن معمولاً از Alembic استفاده می‌شود، اما اینجا برای اطمینان اجرا می‌کنیم
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="ToDo List API",
-    description="A simple ToDo List API developed for Software Engineering Course",
+    description="A simple ToDo List API developed for Software Engineering Course (Phase 3)",
     version="1.0.0",
-    docs_url="/docs",  # آدرس Swagger UI
+    docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# اتصال کنترلرها (Routers) به برنامه اصلی
-app.include_router(project_controller.router)
-app.include_router(task_controller.router)
+
+app.include_router(
+    project_controller.router,
+    prefix="/api/projects",  # تمام مسیرهای پروژه با /api/projects شروع می‌شوند
+    tags=["Projects"]        # در سواگر زیر دسته Projects قرار می‌گیرند
+)
+
+app.include_router(
+    task_controller.router,
+    prefix="/api/tasks",     # تمام مسیرهای تسک با /api/tasks شروع می‌شوند
+    tags=["Tasks"]           # در سواگر زیر دسته Tasks قرار می‌گیرند
+)
 
 @app.get("/")
 def read_root():
